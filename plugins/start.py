@@ -206,7 +206,7 @@ async def not_joined(client: Client, message: Message):
                         data = await client.get_chat(chat_id)
                         chat_data_cache[chat_id] = data
 
-                    name = data.title
+                    name = "• Jᴏɪɴ ᴄʜᴀɴɴᴇʟ •" #data.title
 
                     # Generate proper invite link based on the mode
                     if mode == "on" and not data.username:
