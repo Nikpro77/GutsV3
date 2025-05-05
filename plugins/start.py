@@ -149,7 +149,7 @@ async def start_command(client: Client, message: Message):
     else:
         reply_markup = InlineKeyboardMarkup(
             [
-                    [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Nova_Flix/50")],
+                    [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/as_networks")],
 
     [
                     InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
@@ -206,7 +206,7 @@ async def not_joined(client: Client, message: Message):
                         data = await client.get_chat(chat_id)
                         chat_data_cache[chat_id] = data
 
-                    name = "• Jᴏɪɴ ᴄʜᴀɴɴᴇʟ •" #data.title
+                    name = data.title
 
                     # Generate proper invite link based on the mode
                     if mode == "on" and not data.username:
@@ -266,6 +266,7 @@ async def not_joined(client: Client, message: Message):
             f"<b><i>! Eʀʀᴏʀ, Cᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @rohit_1888</i></b>\n"
             f"<blockquote expandable><b>Rᴇᴀsᴏɴ:</b> {e}</blockquote>"
         )
+        await temp.delete
 
 #=====================================================================================##
 
