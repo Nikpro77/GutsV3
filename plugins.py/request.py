@@ -6,19 +6,14 @@ from pyrogram.types import (
     Message
 )
 from datetime import datetime
+from config import *
+from bot import Bot
+from database.database import *
 import json
 
-# Initialize your bot
-app = Client(
-    "request_bot",
-    api_id="your_api_id",
-    api_hash="your_api_hash",
-    bot_token="your_bot_token"
-)
-
 # Configuration
-CHANNEL_ID = "@your_channel"  # Channel where requests will be posted
-ADMIN_IDS = [12345, 67890]  # List of admin user IDs
+CHANNEL_ID = "-1002635527933"  # Channel where requests will be posted
+ADMIN_IDS = [1993048420]  # List of admin user IDs
 REQUESTS_FILE = "requests.json"
 
 # Store requests in a JSON file
@@ -34,7 +29,7 @@ def save_requests(requests):
         json.dump(requests, f)
 
 # Command handler for /request
-@app.on_message(filters.command("request") & filters.private)
+@Bot.on_message(filters.command("request") & filters.private)
 async def handle_request(client: Client, message: Message):
     # Extract the query from the message
     if len(message.command) < 2:
@@ -102,7 +97,7 @@ async def handle_request(client: Client, message: Message):
             print(f"Failed to notify admin {admin_id}: {e}")
 
 # Callback handler for admin actions
-@app.on_callback_query()
+@Bot.on_callback_query()
 async def handle_callback(client: Client, callback: CallbackQuery):
     # Verify if user is admin
     if callback.from_user.id not in ADMIN_IDS:
@@ -156,7 +151,7 @@ async def handle_callback(client: Client, callback: CallbackQuery):
         await callback.answer()
 
 # Handler for admin responses
-@app.on_message(filters.private & filters.user(ADMIN_IDS))
+@Bot.on_message(filters.private & filters.user(ADMIN_IDS))
 async def handle_admin_response(client: Client, message: Message):
     if not hasattr(app, "admin_responding") or not app.admin_responding:
         return
@@ -192,7 +187,4 @@ async def handle_admin_response(client: Client, message: Message):
         
         await message.reply("Response added successfully!")
         
-    app.admin_responding = None  # Reset the state
-
-# Start the bot
-app.run()
+    Bot.admin_responding = None  # Reset the state
