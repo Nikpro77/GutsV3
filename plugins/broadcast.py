@@ -400,10 +400,7 @@ async def cancel_broadcast_callback(client: Bot, callback: CallbackQuery):
     # Extract broadcast ID from callback data
     broadcast_id = callback.data.split("_")[-1]
     
-    # Check if this is an admin
-    if callback.from_user.id not in ADMINS:
-        await callback.answer("You don't have permission to cancel broadcasts.", show_alert=True)
-        return
+    
     
     # Initialize active_broadcasts if not exists
     if not hasattr(client, "active_broadcasts"):
