@@ -12,7 +12,7 @@ from database.database import *
 import json
 
 # Configuration
-CHANNEL_ID = "-1002635527933"  # Channel where requests will be posted
+CHANNEL_ID = -1002635527933  # Channel where requests will be posted
 ADMIN_IDS = [1993048420]  # List of admin user IDs
 REQUESTS_FILE = "requests.json"
 
