@@ -114,7 +114,7 @@ Unsuccessful: <code>{unsuccessful}</code>"""
         return await pls_wait.edit(status)
 
     else:
-        msg = await message.reply("Reply to a message to broadcast and pin it.")
+        msg = await message.reply("<code>Reply to a message to broadcast and pin it.</code>")
         await asyncio.sleep(8)
         await msg.delete()
 
@@ -291,7 +291,7 @@ Unsuccessful: <code>{unsuccessful}</code>"""
         return await pls_wait.edit(status)
 
     else:
-        msg = await message.reply("Pʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ ᴛᴏ ʙʀᴏᴀᴅᴄᴀsᴛ ɪᴛ ᴡɪᴛʜ Aᴜᴛᴏ-Dᴇʟᴇᴛᴇ.")
+        msg = await message.reply("<code>Pʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ ᴛᴏ ʙʀᴏᴀᴅᴄᴀsᴛ ɪᴛ ᴡɪᴛʜ Aᴜᴛᴏ-Dᴇʟᴇᴛᴇ.</code>")
         await asyncio.sleep(8)
         await msg.delete()
 
@@ -376,7 +376,7 @@ Unsuccessful: <code>{unsuccessful}</code>"""
         return await pls_wait.edit(final_status)
 
     else:
-        msg = await message.reply("Reply to a message to forward broadcast it to all users.")
+        msg = await message.reply("<code>Reply to a message to forward broadcast it to all users.</code>")
         await asyncio.sleep(8)
         await msg.delete()
 
