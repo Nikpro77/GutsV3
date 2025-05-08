@@ -6,7 +6,7 @@ import re
 import asyncio
 import time
 from pyrogram import filters
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ChatType
 from config import *
 from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
 from pyrogram.errors import FloodWait
@@ -33,6 +33,13 @@ async def is_subscribed(client, user_id):
         return True
 
     for cid in channel_ids:
+        try:
+            # Determine chat type for better logging
+            chat = await client.get_chat(cid)
+            chat_type = "channel" if chat.type == ChatType.CHANNEL else "group"
+        except:
+            chat_type = "chat"  # fallback
+            
         if not await is_sub(client, user_id, cid):
             # Retry once if join request might be processing
             mode = await db.get_channel_mode(cid)
@@ -40,6 +47,12 @@ async def is_subscribed(client, user_id):
                 await asyncio.sleep(2)  # give time for @on_chat_join_request to process
                 if await is_sub(client, user_id, cid):
                     continue
+            # Get chat info for the error message
+            try:
+                chat_info = f"{chat_type} {chat.title}"
+            except:
+                chat_info = f"{chat_type} {cid}"
+            #print(f"[NOT SUBSCRIBED] User {user_id} not subscribed to {chat_info}")
             return False
 
     return True
@@ -49,7 +62,16 @@ async def is_sub(client, user_id, channel_id):
     try:
         member = await client.get_chat_member(channel_id, user_id)
         status = member.status
-        #print(f"[SUB] User {user_id} in {channel_id} with status {status}")
+        # Get chat type to log properly
+        try:
+            chat = await client.get_chat(channel_id)
+            chat_type = "channel" if chat.type == ChatType.CHANNEL else "group"
+        except:
+            chat_type = "chat"  # fallback if can't determine type
+            
+        #print(f"[SUB] User {user_id} in {chat_type} {channel_id} with status {status}")
+        
+        # These statuses apply to both channels and groups
         return status in {
             ChatMemberStatus.OWNER,
             ChatMemberStatus.ADMINISTRATOR,
@@ -57,6 +79,7 @@ async def is_sub(client, user_id, channel_id):
         }
 
     except UserNotParticipant:
+        # Check if request mode is on for this channel/group
         mode = await db.get_channel_mode(channel_id)
         if mode == "on":
             exists = await db.req_user_exist(channel_id, user_id)
