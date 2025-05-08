@@ -135,7 +135,7 @@ async def add_force_sub(client: Client, message: Message):
     try:
         chat = await client.get_chat(channel_id)
 
-        if chat.type != ChatType.CHANNEL:
+        if chat.type != ChatType.CHANNEL or chat.type != ChatType.GROUP or chat.type != ChatType.SUPERGROUP:
             return await temp.edit("<b>❌ Only public or private channels are allowed.</b>")
 
         member = await client.get_chat_member(chat.id, "me")
