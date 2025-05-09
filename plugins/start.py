@@ -208,23 +208,30 @@ async def not_joined(client: Client, message: Message):
 
                     name = data.title
 
-                    # Generate proper invite link based on the mode
-                    if mode == "on" and not data.username:
+                    # Check if the channel/group is public (has a username)
+                    if data.username:
+                        # Public channel/group - only generate expiry date link without create_join_request
                         invite = await client.create_chat_invite_link(
                             chat_id=chat_id,
-                            creates_join_request=True,
                             expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None
-                            )
+                        )
                         link = invite.invite_link
-
                     else:
-                        if data.username:
-                            link = f"https://t.me/{data.username}"
-                        else:
+                        # Private channel/group - consider the mode
+                        if mode == "on":
+                            # Join request mode - use creates_join_request=True
                             invite = await client.create_chat_invite_link(
                                 chat_id=chat_id,
-                                expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None)
-                            link = invite.invite_link
+                                creates_join_request=True,
+                                expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None
+                            )
+                        else:
+                            # Direct join mode - don't use creates_join_request
+                            invite = await client.create_chat_invite_link(
+                                chat_id=chat_id,
+                                expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None
+                            )
+                        link = invite.invite_link
 
                     buttons.append([InlineKeyboardButton(text=name, url=link)])
                     count += 1
