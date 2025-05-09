@@ -208,30 +208,30 @@ async def not_joined(client: Client, message: Message):
 
                     name = data.title
 
-                    # Check if the channel/group is public (has a username)
-                    if data.username:
-                        # Public channel/group - only generate expiry date link without create_join_request
-                        invite = await client.create_chat_invite_link(
-                            chat_id=chat_id,
-                            expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None
-                        )
-                        link = invite.invite_link
-                    else:
-                        # Private channel/group - consider the mode
-                        if mode == "on":
-                            # Join request mode - use creates_join_request=True
+                    # For all channels/groups, generate custom invite links
+                    # (ignore the username even if channel is public)
+                    try:
+                        if mode == "on" and not data.username:  # Only use creates_join_request for private channels in "on" mode
+                            # Private channel with join request mode
                             invite = await client.create_chat_invite_link(
                                 chat_id=chat_id,
                                 creates_join_request=True,
                                 expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None
                             )
                         else:
-                            # Direct join mode - don't use creates_join_request
+                            # Public channel or private channel without join request
                             invite = await client.create_chat_invite_link(
                                 chat_id=chat_id,
                                 expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None
                             )
                         link = invite.invite_link
+                    except Exception as e:
+                        print(f"Failed to create invite link: {e}")
+                        # Fallback to username link only if generating invite link fails
+                        if data.username:
+                            link = f"https://t.me/{data.username}"
+                        else:
+                            raise  # Re-raise the exception if no fallback available
 
                     buttons.append([InlineKeyboardButton(text=name, url=link)])
                     count += 1
@@ -274,7 +274,6 @@ async def not_joined(client: Client, message: Message):
             f"<blockquote expandable><b>Rᴇᴀsᴏɴ:</b> {e}</blockquote>"
         )
         await temp.delete
-
 #=====================================================================================##
 
 @Bot.on_message(filters.command('commands') & filters.private & admin)
