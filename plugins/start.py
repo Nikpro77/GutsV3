@@ -208,10 +208,26 @@ async def not_joined(client: Client, message: Message):
 
                     name = data.title
 
-                    # For all channels/groups, generate custom invite links
-                    # (ignore the username even if channel is public)
+                    # Determine if the channel is public or private
+                    # A channel is public if it has a username or a public invite link
+                    is_public = False
+                    if data.username:  # Username check
+                        is_public = True
+                    elif hasattr(data, 'linked_chat') and data.linked_chat:  # Some linked chats are public
+                        is_public = True
+                    elif hasattr(data, 'invite_link') and data.invite_link:  # Has a permanent invite link
+                        is_public = True
+                    elif hasattr(data, 'type') and data.type == 'supergroup':  # Supergroups can be public
+                        try:
+                            chat_member = await client.get_chat_member(chat_id, user_id)
+                            if chat_member.can_invite_users:  # Check if user has invite permissions
+                                is_public = True
+                        except Exception:
+                            pass
+                    
+                    # Generate appropriate invite link
                     try:
-                        if mode == "on" and not data.username:  # Only use creates_join_request for private channels in "on" mode
+                        if not is_public and mode == "on":
                             # Private channel with join request mode
                             invite = await client.create_chat_invite_link(
                                 chat_id=chat_id,
