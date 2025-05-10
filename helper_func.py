@@ -24,12 +24,13 @@ async def check_admin(filter, client, update):
         return False
 
 async def is_subscribed(client, user_id):
+    # Check if user is owner or admin
+    if user_id == OWNER_ID or await db.admin_exist(user_id):
+        return True
+
     channel_ids = await db.show_channels()
 
     if not channel_ids:
-        return True
-
-    if user_id == OWNER_ID:
         return True
 
     for cid in channel_ids:
@@ -59,6 +60,10 @@ async def is_subscribed(client, user_id):
 
 
 async def is_sub(client, user_id, channel_id):
+    # Check if user is owner or admin
+    if user_id == OWNER_ID or await db.admin_exist(user_id):
+        return True
+        
     try:
         member = await client.get_chat_member(channel_id, user_id)
         status = member.status
