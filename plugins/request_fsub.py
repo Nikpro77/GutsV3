@@ -234,110 +234,24 @@ async def list_force_sub_channels(client: Client, message: Message):
 async def clear_request_users(client: Client, message: Message):
     temp = await message.reply("<b><i>ᴡᴀɪᴛ ᴀ sᴇᴄ..</i></b>", quote=True)
     args = message.text.split(maxsplit=1)
-    
-    # If command is used without parameters, show available channels/groups
-    if len(args) == 1:
-        channels = await db.show_channels()
-        
-        if not channels:
-            return await temp.edit("<b>❌ No force-sub channels/groups found.</b>")
-        
-        buttons = []
-        for ch_id in channels:
-            try:
-                chat = await client.get_chat(ch_id)
-                title = f"{chat.title}"
-                buttons.append([InlineKeyboardButton(title, callback_data=f"clear_req_{ch_id}")])
-            except:
-                buttons.append([InlineKeyboardButton(f"⚠️ {ch_id} (Unavailable)", callback_data=f"clear_req_{ch_id}")])
-        
-        buttons.append([InlineKeyboardButton("Clear ALL Requests", callback_data="clear_req_all")])
-        buttons.append([InlineKeyboardButton("Close ✖️", callback_data="close")])
-        
-        return await temp.edit(
-            "<b>Select a channel/group to clear request users or clear all:</b>",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            disable_web_page_preview=True
-        )
-    
-    # If specific channel ID is provided
-    try:
-        if args[1].lower() == "all":
-            # Clear all requests from all channels
-            channels = await db.show_channels()
-            if not channels:
-                return await temp.edit("<b>❌ No force-sub channels/groups found.</b>")
-            
-            count = 0
-            for ch_id in channels:
-                try:
-                    # Clear the request list for this channel
-                    result = await db.clear_channel_requests(ch_id)
-                    count += result
-                except Exception as e:
-                    print(f"Error clearing requests for {ch_id}: {e}")
-            
-            return await temp.edit(f"<b>✅ Cleared {count} join requests from all channels/groups.</b>")
-        else:
-            # Clear requests for a specific channel
-            try:
-                ch_id = int(args[1])
-                if await db.reqChannel_exist(ch_id):
-                    count = await db.clear_channel_requests(ch_id)
-                    chat = await client.get_chat(ch_id)
-                    return await temp.edit(f"<b>✅ Cleared {count} join requests from:</b> {chat.title}")
-                else:
-                    return await temp.edit(f"<b>❌ Channel/Group not found in force-sub list:</b> <code>{ch_id}</code>")
-            except ValueError:
-                return await temp.edit("<b>❌ Invalid Channel/Group ID</b>")
-    except Exception as e:
-        return await temp.edit(f"<b>❌ Error:</b> {str(e)}")
 
+    if len(args) != 2 or args[1].lower() != "all":
+        return await temp.edit("<b>Usage:</b> <code>/clear_requests all</code>")
 
-# Callback handler for clear requests buttons
-@Bot.on_callback_query(filters.regex(r'^clear_req_'))
-async def clear_request_callback(client: Client, callback_query: CallbackQuery):
-    query_data = callback_query.data
-    user_id = callback_query.from_user.id
-    
-    # Check if the user is an admin
-    admins = await db.get_all_admins()
-    if user_id not in admins:
-        return await callback_query.answer("⚠️ You are not authorized to use this!", show_alert=True)
-    
-    await callback_query.answer("Processing...")
-    
-    if query_data == "clear_req_all":
-        # Clear all requests from all channels
-        channels = await db.show_channels()
-        if not channels:
-            return await callback_query.message.edit_text("<b>❌ No force-sub channels/groups found.</b>")
-        
-        total_count = 0
-        for ch_id in channels:
-            try:
-                count = await db.clear_channel_requests(ch_id)
-                total_count += count
-            except Exception as e:
-                print(f"Error clearing requests for {ch_id}: {e}")
-        
-        await callback_query.message.edit_text(f"<b>✅ Cleared {total_count} join requests from all channels/groups.</b>")
-    else:
-        # Extract channel ID
+    channels = await db.show_channels()
+    if not channels:
+        return await temp.edit("<b>❌ No force-sub channels/groups found.</b>")
+
+    total_count = 0
+    for ch_id in channels:
         try:
-            ch_id = int(query_data.split("_")[2])
-            
-            if await db.reqChannel_exist(ch_id):
-                count = await db.clear_channel_requests(ch_id)
-                try:
-                    chat = await client.get_chat(ch_id)
-                    await callback_query.message.edit_text(f"<b>✅ Cleared {count} join requests from:</b> {chat.title}")
-                except:
-                    await callback_query.message.edit_text(f"<b>✅ Cleared {count} join requests from:</b> <code>{ch_id}</code>")
-            else:
-                await callback_query.message.edit_text(f"<b>❌ Channel/Group not found in force-sub list:</b> <code>{ch_id}</code>")
+            count = await db.clear_channel_requests(ch_id)
+            total_count += count
         except Exception as e:
-            await callback_query.message.edit_text(f"<b>❌ Error:</b> {str(e)}")
+            print(f"Error clearing requests for {ch_id}: {e}")
+
+    await temp.edit(f"<b>✅ Cleared {total_count} join requests from all channels/groups.</b>")
+
 
 # Don't Remove Credit @CodeFlix_Bots, @rohit_1888
 # Ask Doubt on telegram @CodeflixSupport
