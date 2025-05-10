@@ -47,7 +47,7 @@ async def start_command(client: Client, message: Message):
     await asyncio.sleep(0.5)
     await m.edit_text("<code>Checking.</code>")
     await asyncio.sleep(0.4)
-    await m.edit_text("Checking..")
+    await m.edit_text("<code>Checking..</code>")
     await asyncio.sleep(0.4)
     await m.edit_text("<code>Checking...</code>")
     await asyncio.sleep(0.6)
