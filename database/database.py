@@ -194,5 +194,28 @@ class Rohit:
             #print(f"Channel {channel_id} NOT found in the database.")
             return False
 
+    # Method to clear all requests for a specific channel
+    async def clear_channel_requests(self, channel_id: int):
+        """
+        Clears all user requests for a specific channel
+        Returns the number of users removed
+        """
+        try:
+            # Get the current document to count users
+            channel_data = await self.rqst_fsub_Channel_data.find_one({'_id': int(channel_id)})
+            user_count = len(channel_data.get('user_ids', [])) if channel_data else 0
+            
+            # Delete all user IDs for this channel by setting an empty array
+            result = await self.rqst_fsub_Channel_data.update_one(
+                {'_id': int(channel_id)},
+                {'$set': {'user_ids': []}},
+                upsert=True
+            )
+            
+            return user_count
+        except Exception as e:
+            print(f"[DB ERROR] Failed to clear request list: {e}")
+            return 0
+
 
 db = Rohit(DB_URI, DB_NAME)
