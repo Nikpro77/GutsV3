@@ -218,8 +218,43 @@ async def get_admins(client: Client, message: Message):
 
     if not admin_ids:
         admin_list = "<b><blockquote>❌ No admins found.</blockquote></b>"
-    else:
-        admin_list = "\n".join(f"<b><blockquote>ID: <code>{id}</code></blockquote></b>" for id in admin_ids)
+        reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("ᴄʟᴏsᴇ", callback_data="close")]])
+        return await pro.edit(f"<b>⚡ Current Admin List:</b>\n\n{admin_list}", reply_markup=reply_markup)
+    
+    # Fetch admin information with names
+    admin_list = "<b>📊 Current Admins:</b>\n\n"
+    counter = 1
+    
+    for admin_id in admin_ids:
+        try:
+            # Try to get user information
+            user = await client.get_users(admin_id)
+            
+            # Extract name information
+            if user.first_name:
+                name = user.first_name
+                if user.last_name:
+                    name += f" {user.last_name}"
+            else:
+                name = "Unknown"
+                
+            # Add username if available
+            username = f"@{user.username}" if user.username else "No username"
+            
+            # Create a mention of the user
+            mention = f"<a href='tg://user?id={admin_id}'>{name}</a>"
+            
+            admin_list += f"<b>{counter}.</b> {mention} : <code>{admin_id}</code>\n"
+            if user.username:
+                admin_list += f"   └ Username: {username}\n"
+                
+        except Exception as e:
+            # If we can't get user info, just show the ID
+            admin_list += f"<b>{counter}.</b> <code>{admin_id}</code> (User info unavailable)\n"
+        
+        counter += 1
 
+    # Add close button
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("ᴄʟᴏsᴇ", callback_data="close")]])
-    await pro.edit(f"<b>⚡ Current Admin List:</b>\n\n{admin_list}", reply_markup=reply_markup)
+    
+    await pro.edit(admin_list, reply_markup=reply_markup)
