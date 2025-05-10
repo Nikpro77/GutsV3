@@ -15,7 +15,7 @@ from database.database import *
 
 
 # Commands for adding admins by owner
-@Bot.on_message(filters.command(['add_admin', 'addadmin']) & filters.user(OWNER_ID))
+@Bot.on_message(filters.command(['add_admin', 'addadmin']) & filters.private & filters.user(OWNER_ID))
 async def add_admins(client: Client, message: Message):
     pro = await message.reply("<b><i>ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ..</i></b>", quote=True)
     check = 0
@@ -69,16 +69,20 @@ async def add_admins(client: Client, message: Message):
             # Try to convert to integer for validation
             try:
                 user_id = int(id_or_username)
-                # Validate if this is a user (not a channel or group)
+                # Try to validate if this is a user (not a channel or group)
                 try:
                     user = await client.get_users(user_id)
                     # Skip if deleted, bot, verified, or fake
                     if user.is_deleted or user.is_bot or user.is_verified or user.is_fake:
                         admin_list += f"<blockquote><b>Invalid user: <code>{id_or_username}</code> (not a regular user)</b></blockquote>\n"
                         continue
-                except (PeerIdInvalid, UserIsBlocked, InputUserDeactivated):
-                    admin_list += f"<blockquote><b>Invalid user: <code>{id_or_username}</code> (not found or blocked)</b></blockquote>\n"
-                    continue
+                except (PeerIdInvalid, UserIsBlocked, InputUserDeactivated) as e:
+                    # If we can't fetch the user details but have a numeric ID, we'll still try to add it
+                    # This handles cases where the bot can't fetch user info but the ID is valid
+                    pass
+                except Exception as e:
+                    # For unexpected errors, log and continue with adding the user
+                    admin_list += f"<blockquote><b>Warning for ID <code>{user_id}</code>: {str(e)}</b></blockquote>\n"
             except ValueError:
                 # Not an integer, skip this validation
                 user_id = id_or_username
@@ -95,6 +99,17 @@ async def add_admins(client: Client, message: Message):
                     admin_list += f"<blockquote><b>ID <code>{user_id}</code> already exists as admin.</b></blockquote>\n"
                     continue
                 
+                # Add user as admin
+                admin_list += f"<b><blockquote>(ID: <code>{user_id}</code>) added.</blockquote></b>\n"
+                await db.add_admin(user_id)
+                check += 1
+            elif isinstance(user_id, int):
+                # Process integer user_id
+                if user_id in admin_ids:
+                    admin_list += f"<blockquote><b>ID <code>{user_id}</code> already exists as admin.</b></blockquote>\n"
+                    continue
+                
+                # Add user as admin
                 admin_list += f"<b><blockquote>(ID: <code>{user_id}</code>) added.</blockquote></b>\n"
                 await db.add_admin(user_id)
                 check += 1
@@ -113,7 +128,7 @@ async def add_admins(client: Client, message: Message):
         )
 
 
-@Bot.on_message(filters.command(['deladmin', 'del_admin']) & filters.user(OWNER_ID))
+@Bot.on_message(filters.command(['deladmin', 'del_admin']) & filters.private & filters.user(OWNER_ID))
 async def delete_admins(client: Client, message: Message):
     pro = await message.reply("<b><i>ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ..</i></b>", quote=True)
     admin_ids = await db.get_all_admins()
@@ -196,7 +211,7 @@ async def delete_admins(client: Client, message: Message):
         await pro.edit("<b><blockquote>No admin IDs available to delete.</blockquote></b>", reply_markup=reply_markup)
 
 
-@Bot.on_message(filters.command('admins') & admin)
+@Bot.on_message(filters.command('admins') & filters.private & admin)
 async def get_admins(client: Client, message: Message):
     pro = await message.reply("<b><i>ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ..</i></b>", quote=True)
     admin_ids = await db.get_all_admins()
