@@ -42,6 +42,17 @@ async def start_command(client: Client, message: Message):
                 [[InlineKeyboardButton("Contact Support", url=BAN_SUPPORT)]]
             )
         )
+
+    m = await message.reply_text("♻️")
+    await asyncio.sleep(0.5)
+    await m.edit_text("<code>Checking.</code>")
+    await asyncio.sleep(0.4)
+    await m.edit_text("Checking..")
+    await asyncio.sleep(0.4)
+    await m.edit_text("<code>Checking...</code>")
+    await asyncio.sleep(0.6)
+    await m.delete()
+    
     # ✅ Check Force Subscription
     if not await is_subscribed(client, user_id):
         #await temp.delete()
