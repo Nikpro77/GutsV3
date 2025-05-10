@@ -229,6 +229,30 @@ async def list_force_sub_channels(client: Client, message: Message):
 
     await temp.edit(result, disable_web_page_preview=True, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Close ✖️", callback_data="close")]]))
 
+# Clear request force sub user list
+@Bot.on_message(filters.command('clear_requests') & filters.private & admin)
+async def clear_request_users(client: Client, message: Message):
+    temp = await message.reply("<b><i>ᴡᴀɪᴛ ᴀ sᴇᴄ..</i></b>", quote=True)
+    args = message.text.split(maxsplit=1)
+
+    if len(args) != 2 or args[1].lower() != "all":
+        return await temp.edit("<b>Usage:</b> <code>/clear_requests all</code>")
+
+    channels = await db.show_channels()
+    if not channels:
+        return await temp.edit("<b>❌ No force-sub channels/groups found.</b>")
+
+    total_count = 0
+    for ch_id in channels:
+        try:
+            count = await db.clear_channel_requests(ch_id)
+            total_count += count
+        except Exception as e:
+            print(f"Error clearing requests for {ch_id}: {e}")
+
+    await temp.edit(f"<b>✅ Cleared {total_count} join requests from all channels/groups.</b>")
+
+
 # Don't Remove Credit @CodeFlix_Bots, @rohit_1888
 # Ask Doubt on telegram @CodeflixSupport
 #
