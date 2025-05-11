@@ -24,12 +24,7 @@ default_verify = {
 def new_user(id):
     return {
         '_id': id,
-        'verify_status': {
-            'is_verified': False,
-            'verified_time': "",
-            'verify_token': "",
-            'link': ""
-        }
+        'verify_status': default_verify.copy()
     }
 
 class Rohit:
@@ -48,7 +43,6 @@ class Rohit:
         self.fsub_data = self.database['fsub']   
         self.rqst_fsub_data = self.database['request_forcesub']
         self.rqst_fsub_Channel_data = self.database['request_forcesub_channel']
-        
 
 
     # USER DATA
@@ -57,63 +51,51 @@ class Rohit:
         return bool(found)
 
     async def add_user(self, user_id: int):
-        await self.user_data.insert_one({'_id': user_id})
-        return
+        await self.user_data.insert_one(new_user(user_id))
 
     async def full_userbase(self):
         user_docs = await self.user_data.find().to_list(length=None)
-        user_ids = [doc['_id'] for doc in user_docs]
-        return user_ids
+        return [doc['_id'] for doc in user_docs]
 
     async def del_user(self, user_id: int):
         await self.user_data.delete_one({'_id': user_id})
-        return
 
 
     # ADMIN DATA
     async def admin_exist(self, admin_id: int):
-        found = await self.admins_data.find_one({'_id': admin_id})
-        return bool(found)
+        return bool(await self.admins_data.find_one({'_id': admin_id}))
 
     async def add_admin(self, admin_id: int):
         if not await self.admin_exist(admin_id):
             await self.admins_data.insert_one({'_id': admin_id})
-            return
 
     async def del_admin(self, admin_id: int):
         if await self.admin_exist(admin_id):
             await self.admins_data.delete_one({'_id': admin_id})
-            return
 
     async def get_all_admins(self):
-        users_docs = await self.admins_data.find().to_list(length=None)
-        user_ids = [doc['_id'] for doc in users_docs]
-        return user_ids
+        docs = await self.admins_data.find().to_list(length=None)
+        return [doc['_id'] for doc in docs]
 
 
     # BAN USER DATA
     async def ban_user_exist(self, user_id: int):
-        found = await self.banned_user_data.find_one({'_id': user_id})
-        return bool(found)
+        return bool(await self.banned_user_data.find_one({'_id': user_id}))
 
     async def add_ban_user(self, user_id: int):
         if not await self.ban_user_exist(user_id):
             await self.banned_user_data.insert_one({'_id': user_id})
-            return
 
     async def del_ban_user(self, user_id: int):
         if await self.ban_user_exist(user_id):
             await self.banned_user_data.delete_one({'_id': user_id})
-            return
 
     async def get_ban_users(self):
-        users_docs = await self.banned_user_data.find().to_list(length=None)
-        user_ids = [doc['_id'] for doc in users_docs]
-        return user_ids
+        docs = await self.banned_user_data.find().to_list(length=None)
+        return [doc['_id'] for doc in docs]
 
 
-
-    # AUTO DELETE TIMER SETTINGS
+    # AUTO DELETE TIMER
     async def set_del_timer(self, value: int):        
         existing = await self.del_timer_data.find_one({})
         if existing:
@@ -123,143 +105,114 @@ class Rohit:
 
     async def get_del_timer(self):
         data = await self.del_timer_data.find_one({})
-        if data:
-            return data.get('value', 600)
-        return 0
+        return data.get('value', 600) if data else 0
 
 
-    # CHANNEL MANAGEMENT
+    # FORCE SUB CHANNEL MANAGEMENT
     async def channel_exist(self, channel_id: int):
-        found = await self.fsub_data.find_one({'_id': channel_id})
-        return bool(found)
+        return bool(await self.fsub_data.find_one({'_id': channel_id}))
 
     async def add_channel(self, channel_id: int):
         if not await self.channel_exist(channel_id):
             await self.fsub_data.insert_one({'_id': channel_id})
-            return
 
     async def rem_channel(self, channel_id: int):
         if await self.channel_exist(channel_id):
             await self.fsub_data.delete_one({'_id': channel_id})
-            return
 
     async def show_channels(self):
-        channel_docs = await self.fsub_data.find().to_list(length=None)
-        channel_ids = [doc['_id'] for doc in channel_docs]
-        return channel_ids
+        docs = await self.fsub_data.find().to_list(length=None)
+        return [doc['_id'] for doc in docs]
 
-    
-# Get current mode of a channel
     async def get_channel_mode(self, channel_id: int):
         data = await self.fsub_data.find_one({'_id': channel_id})
         return data.get("mode", "off") if data else "off"
 
-    # Set mode of a channel
     async def set_channel_mode(self, channel_id: int, mode: str):
-        await self.fsub_data.update_one(
-            {'_id': channel_id},
-            {'$set': {'mode': mode}},
-            upsert=True
-        )
+        await self.fsub_data.update_one({'_id': channel_id}, {'$set': {'mode': mode}}, upsert=True)
 
-    # REQUEST FORCE-SUB MANAGEMENT
 
-    # Add the user to the set of users for a   specific channel
+    # REQUEST FORCE SUB MANAGEMENT
     async def req_user(self, channel_id: int, user_id: int):
         try:
             await self.rqst_fsub_Channel_data.update_one(
-                {'_id': int(channel_id)},
-                {'$addToSet': {'user_ids': int(user_id)}},
+                {'_id': channel_id},
+                {'$addToSet': {'user_ids': user_id}},
                 upsert=True
             )
         except Exception as e:
-            print(f"[DB ERROR] Failed to add user to request list: {e}")
+            print(f"[DB ERROR] Add req_user: {e}")
 
-
-    # Method 2: Remove a user from the channel set
     async def del_req_user(self, channel_id: int, user_id: int):
-        # Remove the user from the set of users for the channel
         await self.rqst_fsub_Channel_data.update_one(
-            {'_id': channel_id}, 
+            {'_id': channel_id},
             {'$pull': {'user_ids': user_id}}
         )
 
-    # Check if the user exists in the set of the channel's users
     async def req_user_exist(self, channel_id: int, user_id: int):
         try:
             found = await self.rqst_fsub_Channel_data.find_one({
-                '_id': int(channel_id),
-                'user_ids': int(user_id)
+                '_id': channel_id,
+                'user_ids': user_id
             })
             return bool(found)
         except Exception as e:
-            print(f"[DB ERROR] Failed to check request list: {e}")
-            return False  
-
-
-    # Method to check if a channel exists using show_channels
-    async def reqChannel_exist(self, channel_id: int):
-    # Get the list of all channel IDs from the database
-        channel_ids = await self.show_channels()
-        #print(f"All channel IDs in the database: {channel_ids}")
-
-    # Check if the given channel_id is in the list of channel IDs
-        if channel_id in channel_ids:
-            #print(f"Channel {channel_id} found in the database.")
-            return True
-        else:
-            #print(f"Channel {channel_id} NOT found in the database.")
+            print(f"[DB ERROR] Check req_user_exist: {e}")
             return False
 
+    async def reqChannel_exist(self, channel_id: int):
+        return channel_id in await self.show_channels()
+
+    async def clear_channel_requests(self, channel_id: int):
+        try:
+            doc = await self.rqst_fsub_Channel_data.find_one({'_id': channel_id})
+            count = len(doc.get('user_ids', [])) if doc else 0
+            await self.rqst_fsub_Channel_data.update_one(
+                {'_id': channel_id},
+                {'$set': {'user_ids': []}},
+                upsert=True
+            )
+            return count
+        except Exception as e:
+            print(f"[DB ERROR] Clear channel requests: {e}")
+            return 0
 
 
-    # VERIFICATION MANAGEMENT
-    async def db_verify_status(self, user_id):
+    # VERIFICATION SYSTEM
+    async def db_verify_status(self, user_id: int):
         user = await self.user_data.find_one({'_id': user_id})
-        if user:
-            return user.get('verify_status', default_verify)
-        return default_verify
+        return user.get('verify_status', default_verify) if user else default_verify
 
-    async def db_update_verify_status(self, user_id, verify):
-        await self.user_data.update_one({'_id': user_id}, {'$set': {'verify_status': verify}})
+    async def db_update_verify_status(self, user_id: int, verify: dict):
+        await self.user_data.update_one({'_id': user_id}, {'$set': {'verify_status': verify}}, upsert=True)
 
-    async def get_verify_status(self, user_id):
-        verify = await self.db_verify_status(user_id)
-        return verify
+    async def get_verify_status(self, user_id: int):
+        return await self.db_verify_status(user_id)
 
-    async def update_verify_status(self, user_id, verify_token="", is_verified=False, verified_time=0, link=""):
+    async def update_verify_status(self, user_id: int, verify_token="", is_verified=False, verified_time=0, link=""):
         current = await self.db_verify_status(user_id)
-        current['verify_token'] = verify_token
-        current['is_verified'] = is_verified
-        current['verified_time'] = verified_time
-        current['link'] = link
+        current.update({
+            'verify_token': verify_token,
+            'is_verified': is_verified,
+            'verified_time': verified_time,
+            'link': link
+        })
         await self.db_update_verify_status(user_id, current)
 
-    # Set verify count (overwrite with new value)
     async def set_verify_count(self, user_id: int, count: int):
         await self.sex_data.update_one({'_id': user_id}, {'$set': {'verify_count': count}}, upsert=True)
 
-    # Get verify count (default to 0 if not found)
     async def get_verify_count(self, user_id: int):
-        user = await self.sex_data.find_one({'_id': user_id})
-        if user:
-            return user.get('verify_count', 0)
-        return 0
+        doc = await self.sex_data.find_one({'_id': user_id})
+        return doc.get('verify_count', 0) if doc else 0
 
-    # Reset all users' verify counts to 0
     async def reset_all_verify_counts(self):
-        await self.sex_data.update_many(
-            {},
-            {'$set': {'verify_count': 0}} 
-        )
+        await self.sex_data.update_many({}, {'$set': {'verify_count': 0}})
 
-    # Get total verify count across all users
     async def get_total_verify_count(self):
-        pipeline = [
-            {"$group": {"_id": None, "total": {"$sum": "$verify_count"}}}
-        ]
+        pipeline = [{"$group": {"_id": None, "total": {"$sum": "$verify_count"}}}]
         result = await self.sex_data.aggregate(pipeline).to_list(length=1)
-        return result[0]["total"] if result else 0
+        return result[0]['total'] if result else 0
 
 
 db = Rohit(DB_URI, DB_NAME)
