@@ -63,7 +63,9 @@
 /custom_batch - create custom batch from channel/group  
 /genlink - create link for one post  
 /users - view bot statistics  
-/broadcast - broadcast any messages to bot users  
+/broadcast - broadcast any messages to bot users
+/pbroadcast - broadcast and pin any messages to bot users
+/fbroadcast - forward broadcast any messages to bot users  
 /dbroadcast - broadcast any messages with auto delete  
 /stats - check your bot uptime  
 /dlt_time - set auto delete time for files  
