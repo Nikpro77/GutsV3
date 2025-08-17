@@ -158,15 +158,41 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 print(f"Error updating notification with 'Get File Again' button: {e}")
     else:
+        # 🚀 ENHANCED UI WITH MORE BUTTONS
         reply_markup = InlineKeyboardMarkup(
             [
-                    [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/as_networks")],
-
-    [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data = "help")
-
-    ]
+                # Row 1: Main Network Button (Full Width)
+                [InlineKeyboardButton("🌐 ᴀs ɴᴇᴛᴡᴏʀᴋs", url="https://t.me/as_networks")],
+                
+                # Row 2: Content Channels (2 buttons)
+                [
+                    InlineKeyboardButton("🎭 ᴀɴɪᴍᴇ sᴛᴀᴛɪᴏɴ", url="https://t.me/+fD0wqOhZnqNmZmQ9"),
+                    InlineKeyboardButton("🎬 ᴍᴏᴠɪᴇs sᴛᴀᴛɪᴏɴ", url="https://t.me/+x9G79j7Cc2QyYjc1")
+                ],
+                
+                # Row 3: Additional Channels (2 buttons)
+                [
+                    InlineKeyboardButton("🔞 ᴀᴅᴜʟᴛs sᴛᴀᴛɪᴏɴ", url="https://t.me/Adults_Station"),
+                    InlineKeyboardButton("📢 ᴜᴘᴅᴀᴛᴇs", url="https://t.me/Animes_station")
+                ],
+                
+                # Row 4: Bot Information (2 buttons)
+                [
+                    InlineKeyboardButton("ℹ️ ᴀʙᴏᴜᴛ", callback_data="about"),
+                    InlineKeyboardButton("❓ ʜᴇʟᴘ", callback_data="help")
+                ],
+                
+                # Row 5: Additional Features (2 buttons)
+                [
+                    InlineKeyboardButton("📊 ʙᴏᴛ sᴛᴀᴛᴜs", callback_data="stats"),
+                    InlineKeyboardButton("👤 ᴍʏ ɪɴғᴏ", callback_data="my_info")
+                ],
+                
+                # Row 6: Support and Contact (2 buttons)
+                [
+                    InlineKeyboardButton("🛠️ sᴜᴘᴘᴏʀᴛ", url="https://t.me/CodeflixSupport"),
+                    InlineKeyboardButton("💬 ɢʀᴏᴜᴘ ᴄʜᴀᴛ", callback_data="group_chat")
+                ]
             ]
         )
         await message.reply_photo(
@@ -183,6 +209,144 @@ async def start_command(client: Client, message: Message):
         
         return
 
+
+# 📝 CALLBACK HANDLERS FOR NEW BUTTONS
+@Bot.on_callback_query(filters.regex(r'^stats$'))
+async def bot_stats_callback(client: Client, callback_query: CallbackQuery):
+    """Handle bot stats callback"""
+    try:
+        # Get total users count
+        total_users = len(await db.full_userbase())
+        
+        # Get bot uptime (you might need to track this globally)
+        uptime = "Bot is running smoothly! 🚀"
+        
+        stats_text = f"""
+📊 <b>Bot Statistics</b>
+
+👥 <b>Total Users:</b> <code>{total_users}</code>
+⏰ <b>Status:</b> <code>{uptime}</code>
+🤖 <b>Bot Version:</b> <code>v2.0</code>
+🔥 <b>Server:</b> <code>Online</code>
+        """
+        
+        back_button = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔙 Back to Menu", callback_data="back_to_start")
+        ]])
+        
+        await callback_query.message.edit_caption(
+            caption=stats_text,
+            reply_markup=back_button
+        )
+    except Exception as e:
+        await callback_query.answer("❌ Error loading stats!", show_alert=True)
+
+@Bot.on_callback_query(filters.regex(r'^my_info$'))
+async def my_info_callback(client: Client, callback_query: CallbackQuery):
+    """Handle user info callback"""
+    try:
+        user = callback_query.from_user
+        user_info = f"""
+👤 <b>Your Information</b>
+
+🆔 <b>User ID:</b> <code>{user.id}</code>
+👨‍💻 <b>Name:</b> {user.first_name} {user.last_name or ''}
+🔗 <b>Username:</b> @{user.username if user.username else 'Not set'}
+🌟 <b>Status:</b> Premium User ⭐
+📅 <b>Joined:</b> Member since start!
+        """
+        
+        back_button = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔙 Back to Menu", callback_data="back_to_start")
+        ]])
+        
+        await callback_query.message.edit_caption(
+            caption=user_info,
+            reply_markup=back_button
+        )
+    except Exception as e:
+        await callback_query.answer("❌ Error loading your info!", show_alert=True)
+
+@Bot.on_callback_query(filters.regex(r'^group_chat$'))
+async def group_chat_callback(client: Client, callback_query: CallbackQuery):
+    """Handle group chat callback"""
+    group_chat_buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💬 Join Group Chat", url="https://t.me/CodeflixSupport")],
+        [InlineKeyboardButton("📢 Join Updates Channel", url="https://t.me/Animes_station")],
+        [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_to_start")]
+    ])
+    
+    group_text = """
+💬 <b>Join Our Community</b>
+
+Connect with other users and get latest updates!
+
+🔹 <b>Group Chat:</b> Ask questions, share feedback
+🔹 <b>Updates Channel:</b> Get latest news and features
+🔹 <b>Support:</b> Get help from our team
+
+<i>Click the buttons below to join!</i>
+    """
+    
+    await callback_query.message.edit_caption(
+        caption=group_text,
+        reply_markup=group_chat_buttons
+    )
+
+@Bot.on_callback_query(filters.regex(r'^back_to_start$'))
+async def back_to_start_callback(client: Client, callback_query: CallbackQuery):
+    """Handle back to start menu callback"""
+    try:
+        # Recreate the original start menu
+        reply_markup = InlineKeyboardMarkup(
+            [
+                # Row 1: Main Network Button (Full Width)
+                [InlineKeyboardButton("🌐 ᴀs ɴᴇᴛᴡᴏʀᴋs", url="https://t.me/as_networks")],
+                
+                # Row 2: Content Channels (2 buttons)
+                [
+                    InlineKeyboardButton("🎭 ᴀɴɪᴍᴇ sᴛᴀᴛɪᴏɴ", url="https://t.me/+fD0wqOhZnqNmZmQ9"),
+                    InlineKeyboardButton("🎬 ᴍᴏᴠɪᴇs sᴛᴀᴛɪᴏɴ", url="https://t.me/+x9G79j7Cc2QyYjc1")
+                ],
+                
+                # Row 3: Additional Channels (2 buttons)
+                [
+                    InlineKeyboardButton("🔞 ᴀᴅᴜʟᴛs sᴛᴀᴛɪᴏɴ", url="https://t.me/Adults_Station"),
+                    InlineKeyboardButton("📢 ᴜᴘᴅᴀᴛᴇs", url="https://t.me/Animes_station")
+                ],
+                
+                # Row 4: Bot Information (2 buttons)
+                [
+                    InlineKeyboardButton("ℹ️ ᴀʙᴏᴜᴛ", callback_data="about"),
+                    InlineKeyboardButton("❓ ʜᴇʟᴘ", callback_data="help")
+                ],
+                
+                # Row 5: Additional Features (2 buttons)
+                [
+                    InlineKeyboardButton("📊 ʙᴏᴛ sᴛᴀᴛᴜs", callback_data="stats"),
+                    InlineKeyboardButton("👤 ᴍʏ ɪɴғᴏ", callback_data="my_info")
+                ],
+                
+                # Row 6: Support and Contact (2 buttons)
+                [
+                    InlineKeyboardButton("🛠️ sᴜᴘᴘᴏʀᴛ", url="https://t.me/CodeflixSupport"),
+                    InlineKeyboardButton("💬 ɢʀᴏᴜᴘ ᴄʜᴀᴛ", callback_data="group_chat")
+                ]
+            ]
+        )
+        
+        await callback_query.message.edit_caption(
+            caption=START_MSG.format(
+                first=callback_query.from_user.first_name,
+                last=callback_query.from_user.last_name,
+                username=None if not callback_query.from_user.username else '@' + callback_query.from_user.username,
+                mention=callback_query.from_user.mention,
+                id=callback_query.from_user.id
+            ),
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        await callback_query.answer("❌ Error loading menu!", show_alert=True)
 
 
 #=====================================================================================##
