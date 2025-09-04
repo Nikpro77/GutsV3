@@ -217,5 +217,12 @@ class Rohit:
             print(f"[DB ERROR] Failed to clear request list: {e}")
             return 0
 
+    # Method to show all requests 
+    async def get_channel_requests_count(self, channel_id: int) -> int:
+    """Get the number of pending requests for a channel without clearing them"""
+    collection = self.get_request_collection(channel_id)
+    count = await collection.count_documents({})
+    return count
+
 
 db = Rohit(DB_URI, DB_NAME)
