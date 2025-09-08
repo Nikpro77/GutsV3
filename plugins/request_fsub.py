@@ -252,30 +252,6 @@ async def clear_request_users(client: Client, message: Message):
 
     await temp.edit(f"<b>✅ Cleared {total_count} join requests from all channels/groups.</b>")
 
-# Show request force sub user list without clearing
-@Bot.on_message(filters.command('show_requests') & filters.private & admin)
-async def show_request_users(client: Client, message: Message):
-    temp = await message.reply("<b><i>ᴡᴀɪᴛ ᴀ sᴇᴄ..</i></b>", quote=True)
-    
-    channels = await db.show_channels()
-    if not channels:
-        return await temp.edit("<b>❌ No force-sub channels/groups found.</b>")
-
-    total_count = 0
-    result = "<b>📊 Request Statistics:</b>\n\n"
-    
-    for ch_id in channels:
-        try:
-            chat = await client.get_chat(ch_id)
-            count = await db.get_channel_requests_count(ch_id)  # You'll need to implement this function in your db helper
-            total_count += count
-            result += f"• {chat.title}: {count} requests\n"
-        except Exception as e:
-            result += f"• Channel {ch_id}: Unable to fetch\n"
-    
-    result += f"\n<b>Total Requests: {total_count}</b>"
-    await temp.edit(result, disable_web_page_preview=True)
-
 
 # Don't Remove Credit @CodeFlix_Bots, @rohit_1888
 # Ask Doubt on telegram @CodeflixSupport
