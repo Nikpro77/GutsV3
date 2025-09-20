@@ -1,6 +1,5 @@
-# (©)CodeFlix_Bots
-# rohit_1888 on Tg #Dont remove this line
-# +++ Modified By Yato [telegram username: @i_killed_my_clan & @ProYato] +++ #
+#(©)CodeFlix_Bots
+#rohit_1888 on Tg #Dont remove this line
 
 import base64
 import re
@@ -12,34 +11,17 @@ from config import *
 from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
 from pyrogram.errors import FloodWait
 from database.database import *
-from pyrogram.filters import Filter
 
-# ----------------- Admin Filters -----------------
 
-class IsAdmin(Filter):
-    async def __call__(self, client, message):
-        return await db.admin_exist(message.from_user.id)
 
-is_admin_filter = IsAdmin()
-
-class IsOwnerOrAdmin(Filter):
-    async def __call__(self, client, message):
-        user_id = message.from_user.id
-        return user_id == OWNER_ID or await db.admin_exist(user_id)
-
-is_owner_or_admin = IsOwnerOrAdmin()
-
-# used for checking if a user is admin ~Owner also treated as admin level
+#used for cheking if a user is admin ~Owner also treated as admin level
 async def check_admin(filter, client, update):
     try:
-        user_id = update.from_user.id
+        user_id = update.from_user.id       
         return any([user_id == OWNER_ID, await db.admin_exist(user_id)])
     except Exception as e:
         print(f"! Exception in check_admin: {e}")
         return False
-
-
-# ----------------- Force Subscribe -----------------
 
 async def is_subscribed(client, user_id):
     # Check if user is owner or admin
@@ -53,33 +35,48 @@ async def is_subscribed(client, user_id):
 
     for cid in channel_ids:
         try:
+            # Determine chat type for better logging
             chat = await client.get_chat(cid)
             chat_type = "channel" if chat.type == ChatType.CHANNEL else "group"
         except:
             chat_type = "chat"  # fallback
-
+            
         if not await is_sub(client, user_id, cid):
+            # Retry once if join request might be processing
             mode = await db.get_channel_mode(cid)
             if mode == "on":
-                await asyncio.sleep(2)  # wait if join request is still processing
+                await asyncio.sleep(2)  # give time for @on_chat_join_request to process
                 if await is_sub(client, user_id, cid):
                     continue
+            # Get chat info for the error message
             try:
                 chat_info = f"{chat_type} {chat.title}"
             except:
                 chat_info = f"{chat_type} {cid}"
+            #print(f"[NOT SUBSCRIBED] User {user_id} not subscribed to {chat_info}")
             return False
 
     return True
 
 
 async def is_sub(client, user_id, channel_id):
+    # Check if user is owner or admin
     if user_id == OWNER_ID or await db.admin_exist(user_id):
         return True
-
+        
     try:
         member = await client.get_chat_member(channel_id, user_id)
         status = member.status
+        # Get chat type to log properly
+        try:
+            chat = await client.get_chat(channel_id)
+            chat_type = "channel" if chat.type == ChatType.CHANNEL else "group"
+        except:
+            chat_type = "chat"  # fallback if can't determine type
+            
+        #print(f"[SUB] User {user_id} in {chat_type} {channel_id} with status {status}")
+        
+        # These statuses apply to both channels and groups
         return status in {
             ChatMemberStatus.OWNER,
             ChatMemberStatus.ADMINISTRATOR,
@@ -87,18 +84,19 @@ async def is_sub(client, user_id, channel_id):
         }
 
     except UserNotParticipant:
+        # Check if request mode is on for this channel/group
         mode = await db.get_channel_mode(channel_id)
         if mode == "on":
             exists = await db.req_user_exist(channel_id, user_id)
+            #print(f"[REQ] User {user_id} join request for {channel_id}: {exists}")
             return exists
+        #print(f"[NOT SUB] User {user_id} not in {channel_id} and mode != on")
         return False
 
     except Exception as e:
         print(f"[!] Error in is_sub(): {e}")
         return False
 
-
-# ----------------- Base64 Encode/Decode -----------------
 
 async def encode(string):
     string_bytes = string.encode("ascii")
@@ -107,14 +105,11 @@ async def encode(string):
     return base64_string
 
 async def decode(base64_string):
-    base64_string = base64_string.strip("=")
+    base64_string = base64_string.strip("=") # links generated before this commit will be having = sign, hence striping them to handle padding errors.
     base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
-    string_bytes = base64.urlsafe_b64decode(base64_bytes)
+    string_bytes = base64.urlsafe_b64decode(base64_bytes) 
     string = string_bytes.decode("ascii")
     return string
-
-
-# ----------------- Message Helpers -----------------
 
 async def get_messages(client, message_ids):
     messages = []
@@ -138,7 +133,6 @@ async def get_messages(client, message_ids):
         messages.extend(msgs)
     return messages
 
-
 async def get_message_id(client, message):
     if message.forward_from_chat:
         if message.forward_from_chat.id == client.db_channel.id:
@@ -149,7 +143,7 @@ async def get_message_id(client, message):
         return 0
     elif message.text:
         pattern = "https://t.me/(?:c/)?(.*)/(\d+)"
-        matches = re.match(pattern, message.text)
+        matches = re.match(pattern,message.text)
         if not matches:
             return 0
         channel_id = matches.group(1)
@@ -163,8 +157,6 @@ async def get_message_id(client, message):
     else:
         return 0
 
-
-# ----------------- Time Helpers -----------------
 
 def get_readable_time(seconds: int) -> str:
     count = 0
@@ -197,8 +189,7 @@ def get_exp_time(seconds):
             result += f'{int(period_value)} {period_name}'
     return result
 
-
-# ----------------- Filters -----------------
-
 subscribed = filters.create(is_subscribed)
 admin = filters.create(check_admin)
+
+#rohit_1888 on Tg :
