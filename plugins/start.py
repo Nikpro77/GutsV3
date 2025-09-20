@@ -12,7 +12,7 @@ import sys
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta
-from pyrogram import Client, filters, version
+from pyrogram import Client, filters
 from pyrogram.enums import ParseMode, ChatMemberStatus, ChatAction
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
 from pyrogram.errors import FloodWait, UserNotParticipant, UserIsBlocked, InputUserDeactivated
