@@ -1,4 +1,4 @@
-# +++ Modified By Yato [telegram username: @i_killed_my_clan & @ProYato] +++ # aNDI BANDI SANDI JISNE BHI CREDIT HATAYA USKI BANDI RAndi 
+'''# +++ Modified By Yato [telegram username: @i_killed_my_clan & @ProYato] +++ # aNDI BANDI SANDI JISNE BHI CREDIT HATAYA USKI BANDI RAndi 
 import os
 import asyncio
 from config import *
@@ -108,4 +108,4 @@ async def approve_on_command(client, message: Message):
     if success:
         await message.reply_text(f"✅ Auto-approval is now <b>ON</b> for channel <code>{channel_id}</code>.")
     else:
-        await message.reply_text(f"❌ Failed to set auto-approval ON for channel <code>{channel_id}</code>.")
+        await message.reply_text(f"❌ Failed to set auto-approval ON for channel <code>{channel_id}</code>.")'''
