@@ -1,658 +1,557 @@
-# Merged DB Handler
-# Credits: Codeflix_Botz + Yato
+#Codeflix_Botz
+#rohit_1888 on Tg
 
+import motor, asyncio
 import motor.motor_asyncio
-import pymongo
+import time
+import pymongo, os
 from config import DB_URI, DB_NAME
-from datetime import datetime
-from typing import List, Optional, Dict, Any
-import base64
+from bot import Bot
 import logging
-import asyncio
+from datetime import datetime, timedelta
+
+dbclient = pymongo.MongoClient(DB_URI)
+database = dbclient[DB_NAME]
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
-class DBHandler:
-    def __init__(self, db_uri: str, db_name: str):
-        """Initialize database handler with proper connection management."""
+class Rohit:
+
+    def __init__(self, DB_URI, DB_NAME):
+        self.dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
+        self.database = self.dbclient[DB_NAME]
+
+        self.channel_data = self.database['channels']
+        self.admins_data = self.database['admins']
+        self.user_data = self.database['users']
+        self.banned_user_data = self.database['banned_user']
+        self.autho_user_data = self.database['autho_user']
+        self.del_timer_data = self.database['del_timer']
+        self.fsub_data = self.database['fsub']   
+        self.rqst_fsub_data = self.database['request_forcesub']
+        self.rqst_fsub_Channel_data = self.database['request_forcesub_channel']
+        
+
+
+    # USER DATA
+    async def present_user(self, user_id: int):
+        found = await self.user_data.find_one({'_id': user_id})
+        return bool(found)
+
+    async def add_user(self, user_id: int):
+        await self.user_data.insert_one({'_id': user_id})
+        return
+
+    async def full_userbase(self):
+        user_docs = await self.user_data.find().to_list(length=None)
+        user_ids = [doc['_id'] for doc in user_docs]
+        return user_ids
+
+    async def del_user(self, user_id: int):
+        await self.user_data.delete_one({'_id': user_id})
+        return
+
+
+    # ADMIN DATA
+    async def admin_exist(self, admin_id: int):
+        found = await self.admins_data.find_one({'_id': admin_id})
+        return bool(found)
+
+    async def add_admin(self, admin_id: int):
+        if not await self.admin_exist(admin_id):
+            await self.admins_data.insert_one({'_id': admin_id})
+            return
+
+    async def del_admin(self, admin_id: int):
+        if await self.admin_exist(admin_id):
+            await self.admins_data.delete_one({'_id': admin_id})
+            return
+
+    async def get_all_admins(self):
+        users_docs = await self.admins_data.find().to_list(length=None)
+        user_ids = [doc['_id'] for doc in users_docs]
+        return user_ids
+
+
+    # BAN USER DATA
+    async def ban_user_exist(self, user_id: int):
+        found = await self.banned_user_data.find_one({'_id': user_id})
+        return bool(found)
+
+    async def add_ban_user(self, user_id: int):
+        if not await self.ban_user_exist(user_id):
+            await self.banned_user_data.insert_one({'_id': user_id})
+            return
+
+    async def del_ban_user(self, user_id: int):
+        if await self.ban_user_exist(user_id):
+            await self.banned_user_data.delete_one({'_id': user_id})
+            return
+
+    async def get_ban_users(self):
+        users_docs = await self.banned_user_data.find().to_list(length=None)
+        user_ids = [doc['_id'] for doc in users_docs]
+        return user_ids
+
+
+
+    # AUTO DELETE TIMER SETTINGS
+    async def set_del_timer(self, value: int):        
+        existing = await self.del_timer_data.find_one({})
+        if existing:
+            await self.del_timer_data.update_one({}, {'$set': {'value': value}})
+        else:
+            await self.del_timer_data.insert_one({'value': value})
+
+    async def get_del_timer(self):
+        data = await self.del_timer_data.find_one({})
+        if data:
+            return data.get('value', 600)
+        return 0
+
+
+    # CHANNEL MANAGEMENT
+    async def channel_exist(self, channel_id: int):
+        found = await self.fsub_data.find_one({'_id': channel_id})
+        return bool(found)
+
+    async def add_channel(self, channel_id: int):
+        if not await self.channel_exist(channel_id):
+            await self.fsub_data.insert_one({'_id': channel_id})
+            return
+
+    async def rem_channel(self, channel_id: int):
+        if await self.channel_exist(channel_id):
+            await self.fsub_data.delete_one({'_id': channel_id})
+            return
+
+    async def show_channels(self):
+        channel_docs = await self.fsub_data.find().to_list(length=None)
+        channel_ids = [doc['_id'] for doc in channel_docs]
+        return channel_ids
+
+    
+# Get current mode of a channel
+    async def get_channel_mode(self, channel_id: int):
+        data = await self.fsub_data.find_one({'_id': channel_id})
+        return data.get("mode", "off") if data else "off"
+
+    # Set mode of a channel
+    async def set_channel_mode(self, channel_id: int, mode: str):
+        await self.fsub_data.update_one(
+            {'_id': channel_id},
+            {'$set': {'mode': mode}},
+            upsert=True
+        )
+
+    # REQUEST FORCE-SUB MANAGEMENT
+
+    # Add the user to the set of users for a   specific channel
+    async def req_user(self, channel_id: int, user_id: int):
         try:
-            # Async client for async operations
-            self.async_client = motor.motor_asyncio.AsyncIOMotorClient(
-                db_uri,
-                maxPoolSize=50,  # Optimize connection pool
-                minPoolSize=10,
-                maxIdleTimeMS=30000,
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=10000,
-                socketTimeoutMS=20000
-            )
-            
-            # Sync client for initialization checks only
-            self.sync_client = pymongo.MongoClient(
-                db_uri,
-                serverSelectionTimeoutMS=5000
-            )
-            
-            self.database = self.async_client[db_name]
-            
-            # Collections
-            self.user_data = self.database["users"]
-            self.admins_data = self.database["admins"]
-            self.banned_user_data = self.database["banned_user"]
-            self.autho_user_data = self.database["autho_user"]
-            self.del_timer_data = self.database["del_timer"]
-            self.channels_data = self.database["channels"]
-            self.fsub_data = self.database["fsub"]
-            self.rqst_fsub_data = self.database["request_forcesub"]
-            self.rqst_fsub_channel_data = self.database["request_forcesub_channel"]
-            
-            logger.info("Database handler initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize database handler: {e}")
-            raise
-
-    async def close_connections(self):
-        """Properly close database connections."""
-        try:
-            if hasattr(self, 'async_client'):
-                self.async_client.close()
-            if hasattr(self, 'sync_client'):
-                self.sync_client.close()
-            logger.info("Database connections closed")
-        except Exception as e:
-            logger.error(f"Error closing database connections: {e}")
-
-    # ---------------- CONNECTION HEALTH ----------------
-    async def ping_database(self) -> bool:
-        """Check if database connection is healthy."""
-        try:
-            await self.database.command("ping")
-            return True
-        except Exception as e:
-            logger.error(f"Database ping failed: {e}")
-            return False
-
-    # ---------------- USER DATA ----------------
-    async def present_user(self, user_id: int) -> bool:
-        """Check if user exists in database."""
-        try:
-            result = await self.user_data.find_one({"_id": user_id})
-            return result is not None
-        except Exception as e:
-            logger.error(f"Error checking user presence {user_id}: {e}")
-            return False
-
-    async def add_user(self, user_id: int) -> bool:
-        """Add new user to database."""
-        try:
-            if not await self.present_user(user_id):
-                await self.user_data.insert_one({
-                    "_id": user_id, 
-                    "created_at": datetime.utcnow()
-                })
-                logger.info(f"Added new user: {user_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error adding user {user_id}: {e}")
-            return False
-
-    async def full_userbase(self) -> List[int]:
-        """Get all user IDs from database."""
-        try:
-            cursor = self.user_data.find({}, {"_id": 1})
-            users = await cursor.to_list(length=None)
-            return [doc["_id"] for doc in users]
-        except Exception as e:
-            logger.error(f"Error fetching userbase: {e}")
-            return []
-
-    async def del_user(self, user_id: int) -> bool:
-        """Delete user from database."""
-        try:
-            result = await self.user_data.delete_one({"_id": user_id})
-            if result.deleted_count > 0:
-                logger.info(f"Deleted user: {user_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error deleting user {user_id}: {e}")
-            return False
-
-    async def get_users_count(self) -> int:
-        """Get total user count."""
-        try:
-            return await self.user_data.count_documents({})
-        except Exception as e:
-            logger.error(f"Error getting user count: {e}")
-            return 0
-
-    # ---------------- ADMIN DATA ----------------
-    async def is_admin(self, admin_id: int) -> bool:
-        """Check if user is admin."""
-        try:
-            result = await self.admins_data.find_one({"_id": admin_id})
-            return result is not None
-        except Exception as e:
-            logger.error(f"Error checking admin status {admin_id}: {e}")
-            return False
-
-    async def add_admin(self, admin_id: int) -> bool:
-        """Add admin to database."""
-        try:
-            await self.admins_data.update_one(
-                {"_id": admin_id}, 
-                {"$set": {"_id": admin_id, "added_at": datetime.utcnow()}}, 
+            await self.rqst_fsub_Channel_data.update_one(
+                {'_id': int(channel_id)},
+                {'$addToSet': {'user_ids': int(user_id)}},
                 upsert=True
             )
-            logger.info(f"Added admin: {admin_id}")
-            return True
         except Exception as e:
-            logger.error(f"Error adding admin {admin_id}: {e}")
-            return False
+            print(f"[DB ERROR] Failed to add user to request list: {e}")
 
-    async def del_admin(self, admin_id: int) -> bool:
-        """Remove admin from database."""
+
+    # Method 2: Remove a user from the channel set
+    async def del_req_user(self, channel_id: int, user_id: int):
+        # Remove the user from the set of users for the channel
+        await self.rqst_fsub_Channel_data.update_one(
+            {'_id': channel_id}, 
+            {'$pull': {'user_ids': user_id}}
+        )
+
+    # Check if the user exists in the set of the channel's users
+    async def req_user_exist(self, channel_id: int, user_id: int):
         try:
-            result = await self.admins_data.delete_one({"_id": admin_id})
-            if result.deleted_count > 0:
-                logger.info(f"Removed admin: {admin_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error removing admin {admin_id}: {e}")
-            return False
-
-    async def get_all_admins(self) -> List[int]:
-        """Get all admin IDs."""
-        try:
-            cursor = self.admins_data.find({}, {"_id": 1})
-            admins = await cursor.to_list(length=None)
-            return [doc["_id"] for doc in admins]
-        except Exception as e:
-            logger.error(f"Error fetching admins: {e}")
-            return []
-
-    # ---------------- BANNED USERS ----------------
-    async def ban_user_exist(self, user_id: int) -> bool:
-        """Check if user is banned."""
-        try:
-            result = await self.banned_user_data.find_one({"_id": user_id})
-            return result is not None
-        except Exception as e:
-            logger.error(f"Error checking ban status {user_id}: {e}")
-            return False
-
-    async def add_ban_user(self, user_id: int, reason: str = None) -> bool:
-        """Ban user with optional reason."""
-        try:
-            if not await self.ban_user_exist(user_id):
-                ban_data = {
-                    "_id": user_id,
-                    "banned_at": datetime.utcnow()
-                }
-                if reason:
-                    ban_data["reason"] = reason
-                
-                await self.banned_user_data.insert_one(ban_data)
-                logger.info(f"Banned user: {user_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error banning user {user_id}: {e}")
-            return False
-
-    async def del_ban_user(self, user_id: int) -> bool:
-        """Unban user."""
-        try:
-            result = await self.banned_user_data.delete_one({"_id": user_id})
-            if result.deleted_count > 0:
-                logger.info(f"Unbanned user: {user_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error unbanning user {user_id}: {e}")
-            return False
-
-    async def get_ban_users(self) -> List[int]:
-        """Get all banned user IDs."""
-        try:
-            cursor = self.banned_user_data.find({}, {"_id": 1})
-            users = await cursor.to_list(length=None)
-            return [doc["_id"] for doc in users]
-        except Exception as e:
-            logger.error(f"Error fetching banned users: {e}")
-            return []
-
-    # ---------------- DELETE TIMER ----------------
-    async def set_del_timer(self, value: int) -> bool:
-        """Set auto-delete timer value."""
-        try:
-            await self.del_timer_data.update_one(
-                {}, 
-                {"$set": {"value": value, "updated_at": datetime.utcnow()}}, 
-                upsert=True
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error setting delete timer: {e}")
-            return False
-
-    async def get_del_timer(self) -> int:
-        """Get auto-delete timer value."""
-        try:
-            data = await self.del_timer_data.find_one({})
-            return data.get("value", 600) if data else 600
-        except Exception as e:
-            logger.error(f"Error getting delete timer: {e}")
-            return 600
-
-    # ---------------- CHANNEL MANAGEMENT ----------------
-    async def save_channel(self, channel_id: int, title: str = None) -> bool:
-        """Save channel to database."""
-        try:
-            channel_data = {
-                "channel_id": channel_id,
-                "status": "active",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            }
-            if title:
-                channel_data["title"] = title
-
-            await self.channels_data.update_one(
-                {"channel_id": channel_id},
-                {"$set": channel_data},
-                upsert=True
-            )
-            logger.info(f"Saved channel: {channel_id}")
-            return True
-        except Exception as e:
-            logger.error(f"Error saving channel {channel_id}: {e}")
-            return False
-
-    async def get_channels(self) -> List[int]:
-        """Get all active channel IDs."""
-        try:
-            cursor = self.channels_data.find(
-                {"status": "active"}, 
-                {"channel_id": 1}
-            )
-            channels = await cursor.to_list(length=None)
-            return [c["channel_id"] for c in channels if "channel_id" in c]
-        except Exception as e:
-            logger.error(f"Error fetching channels: {e}")
-            return []
-
-    async def delete_channel(self, channel_id: int) -> bool:
-        """Delete channel from database."""
-        try:
-            result = await self.channels_data.delete_one({"channel_id": channel_id})
-            if result.deleted_count > 0:
-                logger.info(f"Deleted channel: {channel_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error deleting channel {channel_id}: {e}")
-            return False
-
-    # ---------------- CHANNEL EXTRA FEATURES ----------------
-    async def save_encoded_link(self, channel_id: int) -> Optional[str]:
-        """Generate and save encoded link for channel."""
-        try:
-            encoded = base64.urlsafe_b64encode(str(channel_id).encode()).decode()
-            await self.channels_data.update_one(
-                {"channel_id": channel_id},
-                {
-                    "$set": {
-                        "encoded_link": encoded, 
-                        "updated_at": datetime.utcnow()
-                    }
-                },
-                upsert=True
-            )
-            return encoded
-        except Exception as e:
-            logger.error(f"Error saving encoded link for {channel_id}: {e}")
-            return None
-
-    async def get_channel_by_encoded_link(self, encoded: str) -> Optional[int]:
-        """Get channel ID by encoded link."""
-        try:
-            ch = await self.channels_data.find_one({
-                "encoded_link": encoded, 
-                "status": "active"
-            })
-            return ch["channel_id"] if ch else None
-        except Exception as e:
-            logger.error(f"Error getting channel by encoded link: {e}")
-            return None
-
-    async def save_invite_link(self, channel_id: int, invite_link: str, is_request: bool = False) -> bool:
-        """Save invite link for channel."""
-        try:
-            await self.channels_data.update_one(
-                {"channel_id": channel_id},
-                {
-                    "$set": {
-                        "current_invite_link": invite_link,
-                        "is_request_link": is_request,
-                        "invite_link_created_at": datetime.utcnow(),
-                        "updated_at": datetime.utcnow()
-                    }
-                },
-                upsert=True
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error saving invite link for {channel_id}: {e}")
-            return False
-
-    async def get_current_invite_link(self, channel_id: int) -> Optional[Dict[str, Any]]:
-        """Get current invite link for channel."""
-        try:
-            ch = await self.channels_data.find_one({
-                "channel_id": channel_id, 
-                "status": "active"
-            })
-            if ch and "current_invite_link" in ch:
-                return {
-                    "invite_link": ch["current_invite_link"], 
-                    "is_request": ch.get("is_request_link", False)
-                }
-            return None
-        except Exception as e:
-            logger.error(f"Error getting invite link for {channel_id}: {e}")
-            return None
-
-    async def get_original_link(self, channel_id: int) -> Optional[str]:
-        """Get original link for channel."""
-        try:
-            ch = await self.channels_data.find_one({
-                "channel_id": channel_id, 
-                "status": "active"
-            })
-            return ch.get("original_link") if ch else None
-        except Exception as e:
-            logger.error(f"Error getting original link for {channel_id}: {e}")
-            return None
-
-    async def set_approval_off(self, channel_id: int, off: bool = True) -> bool:
-        """Set approval status for channel."""
-        try:
-            await self.channels_data.update_one(
-                {"channel_id": channel_id}, 
-                {
-                    "$set": {
-                        "approval_off": off,
-                        "updated_at": datetime.utcnow()
-                    }
-                }, 
-                upsert=True
-            )
-            logger.info(f"Set approval_off={off} for channel {channel_id}")
-            return True
-        except Exception as e:
-            logger.error(f"Error setting approval for {channel_id}: {e}")
-            return False
-
-    async def is_approval_off(self, channel_id: int) -> bool:
-        """Check if approval is off for channel."""
-        try:
-            ch = await self.channels_data.find_one({"channel_id": channel_id})
-            return bool(ch and ch.get("approval_off", False))
-        except Exception as e:
-            logger.error(f"Error checking approval status for {channel_id}: {e}")
-            return False
-
-    # ---------------- F-SUB ----------------
-    async def add_fsub_channel(self, channel_id: int) -> bool:
-        """Add force subscribe channel."""
-        try:
-            existing = await self.fsub_data.find_one({"_id": channel_id})
-            if not existing:
-                await self.fsub_data.insert_one({
-                    "_id": channel_id, 
-                    "status": "active",
-                    "added_at": datetime.utcnow()
-                })
-                logger.info(f"Added fsub channel: {channel_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error adding fsub channel {channel_id}: {e}")
-            return False
-
-    async def remove_fsub_channel(self, channel_id: int) -> bool:
-        """Remove force subscribe channel."""
-        try:
-            result = await self.fsub_data.delete_one({"_id": channel_id})
-            if result.deleted_count > 0:
-                logger.info(f"Removed fsub channel: {channel_id}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error removing fsub channel {channel_id}: {e}")
-            return False
-
-    async def get_fsub_channels(self) -> List[int]:
-        """Get all force subscribe channels."""
-        try:
-            cursor = self.fsub_data.find({"status": "active"}, {"_id": 1})
-            channels = await cursor.to_list(length=None)
-            return [c["_id"] for c in channels]
-        except Exception as e:
-            logger.error(f"Error fetching fsub channels: {e}")
-            return []
-
-    async def get_channel_mode(self, channel_id: int) -> str:
-        """Get channel mode."""
-        try:
-            data = await self.fsub_data.find_one({"_id": channel_id})
-            return data.get("mode", "off") if data else "off"
-        except Exception as e:
-            logger.error(f"Error getting channel mode for {channel_id}: {e}")
-            return "off"
-
-    async def set_channel_mode(self, channel_id: int, mode: str) -> bool:
-        """Set channel mode."""
-        try:
-            await self.fsub_data.update_one(
-                {"_id": channel_id}, 
-                {
-                    "$set": {
-                        "mode": mode,
-                        "updated_at": datetime.utcnow()
-                    }
-                }, 
-                upsert=True
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error setting channel mode for {channel_id}: {e}")
-            return False
-
-    # ---------------- REQUEST FORCE-SUB ----------------
-    async def req_user(self, channel_id: int, user_id: int) -> bool:
-        """Add user to channel request list."""
-        try:
-            await self.rqst_fsub_channel_data.update_one(
-                {"_id": int(channel_id)},
-                {
-                    "$addToSet": {"user_ids": int(user_id)},
-                    "$set": {"updated_at": datetime.utcnow()}
-                },
-                upsert=True
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error adding request user {user_id} to {channel_id}: {e}")
-            return False
-
-    async def del_req_user(self, channel_id: int, user_id: int) -> bool:
-        """Remove user from channel request list."""
-        try:
-            result = await self.rqst_fsub_channel_data.update_one(
-                {"_id": channel_id}, 
-                {
-                    "$pull": {"user_ids": user_id},
-                    "$set": {"updated_at": datetime.utcnow()}
-                }
-            )
-            return result.modified_count > 0
-        except Exception as e:
-            logger.error(f"Error removing request user {user_id} from {channel_id}: {e}")
-            return False
-
-    async def req_user_exist(self, channel_id: int, user_id: int) -> bool:
-        """Check if user exists in channel request list."""
-        try:
-            found = await self.rqst_fsub_channel_data.find_one({
-                "_id": int(channel_id), 
-                "user_ids": int(user_id)
+            found = await self.rqst_fsub_Channel_data.find_one({
+                '_id': int(channel_id),
+                'user_ids': int(user_id)
             })
             return bool(found)
         except Exception as e:
-            logger.error(f"Error checking request user {user_id} in {channel_id}: {e}")
+            print(f"[DB ERROR] Failed to check request list: {e}")
+            return False  
+
+
+    # Method to check if a channel exists using show_channels
+    async def reqChannel_exist(self, channel_id: int):
+    # Get the list of all channel IDs from the database
+        channel_ids = await self.show_channels()
+        #print(f"All channel IDs in the database: {channel_ids}")
+
+    # Check if the given channel_id is in the list of channel IDs
+        if channel_id in channel_ids:
+            #print(f"Channel {channel_id} found in the database.")
+            return True
+        else:
+            #print(f"Channel {channel_id} NOT found in the database.")
             return False
 
-    async def clear_channel_requests(self, channel_id: int) -> int:
-        """Clear all requests for a channel."""
+    # Method to clear all requests for a specific channel
+    async def clear_channel_requests(self, channel_id: int):
+        """
+        Clears all user requests for a specific channel
+        Returns the number of users removed
+        """
         try:
-            doc = await self.rqst_fsub_channel_data.find_one({"_id": int(channel_id)})
-            count = len(doc.get("user_ids", [])) if doc else 0
+            # Get the current document to count users
+            channel_data = await self.rqst_fsub_Channel_data.find_one({'_id': int(channel_id)})
+            user_count = len(channel_data.get('user_ids', [])) if channel_data else 0
             
-            await self.rqst_fsub_channel_data.update_one(
-                {"_id": int(channel_id)}, 
-                {
-                    "$set": {
-                        "user_ids": [],
-                        "cleared_at": datetime.utcnow()
-                    }
-                }, 
+            # Delete all user IDs for this channel by setting an empty array
+            result = await self.rqst_fsub_Channel_data.update_one(
+                {'_id': int(channel_id)},
+                {'$set': {'user_ids': []}},
                 upsert=True
             )
-            logger.info(f"Cleared {count} requests for channel {channel_id}")
-            return count
+            
+            return user_count
         except Exception as e:
-            logger.error(f"Error clearing requests for {channel_id}: {e}")
-            return 0
-
-    async def get_request_count(self, channel_id: int) -> int:
-        """Get pending request count for channel."""
-        try:
-            doc = await self.rqst_fsub_channel_data.find_one({"_id": int(channel_id)})
-            return len(doc.get("user_ids", [])) if doc else 0
-        except Exception as e:
-            logger.error(f"Error getting request count for {channel_id}: {e}")
+            print(f"[DB ERROR] Failed to clear request list: {e}")
             return 0
 
 
-# Create global DB object with proper error handling
-try:
-    db = DBHandler(DB_URI, DB_NAME)
-    logger.info("Global database handler created successfully")
-except Exception as e:
-    logger.critical(f"Failed to create global database handler: {e}")
-    raise
+db = Rohit(DB_URI, DB_NAME)
 
+# +++ Modified By Yato [telegram username: @i_killed_my_clan & @ProYato] +++ # aNDI BANDI SANDI JISNE BHI CREDIT HATAYA USKI BANDI RAndi 
+import motor.motor_asyncio
+import base64
+from config import DB_URI, DB_NAME
+from datetime import datetime, timedelta
+from typing import List, Optional
 
-# ---------------- MODULE-LEVEL WRAPPER FUNCTIONS ----------------
-# These functions provide backward compatibility for direct imports
+dbclient = motor.motor_asyncio.AsyncIOMotorClient(DB_URI)
+database = dbclient[DB_NAME]
 
-async def set_approval_off(channel_id: int, off: bool = True) -> bool:
-    """Module-level wrapper for db.set_approval_off()"""
-    return await db.set_approval_off(channel_id, off)
-
-
-async def is_approval_off(channel_id: int) -> bool:
-    """Module-level wrapper for db.is_approval_off()"""
-    return await db.is_approval_off(channel_id)
-
-
-# Additional commonly used wrapper functions for your PyroFork bot
-async def present_user(user_id: int) -> bool:
-    """Module-level wrapper for db.present_user()"""
-    return await db.present_user(user_id)
-
+# collections
+user_data = database['users']
+channels_collection = database['channels']
+fsub_channels_collection = database['fsub_channels']
 
 async def add_user(user_id: int) -> bool:
-    """Module-level wrapper for db.add_user()"""
-    return await db.add_user(user_id)
+    """Add a user to the database if they don't exist."""
+    if not isinstance(user_id, int) or user_id <= 0:
+        print(f"Invalid user_id: {user_id}")
+        return False
+    
+    try:
+        existing_user = await user_data.find_one({'_id': user_id})
+        if existing_user:
+            return False
+        
+        await user_data.insert_one({'_id': user_id, 'created_at': datetime.utcnow()})
+        return True
+    except Exception as e:
+        print(f"Error adding user {user_id}: {e}")
+        return False
 
+async def present_user(user_id: int) -> bool:
+    """Check if a user exists in the database."""
+    if not isinstance(user_id, int):
+        return False
+    return bool(await user_data.find_one({'_id': user_id}))
 
 async def full_userbase() -> List[int]:
-    """Module-level wrapper for db.full_userbase()"""
-    return await db.full_userbase()
-
+    """Get all user IDs from the database."""
+    try:
+        user_docs = user_data.find()
+        return [doc['_id'] async for doc in user_docs]
+    except Exception as e:
+        print(f"Error fetching userbase: {e}")
+        return []
 
 async def del_user(user_id: int) -> bool:
-    """Module-level wrapper for db.del_user()"""
-    return await db.del_user(user_id)
+    """Delete a user from the database."""
+    try:
+        result = await user_data.delete_one({'_id': user_id})
+        return result.deleted_count > 0
+    except Exception as e:
+        print(f"Error deleting user {user_id}: {e}")
+        return False
 
+async def is_admin(user_id: int) -> bool:
+    """Check if a user is an admin."""
+    admins_collection = database['admins']
+    try:
+        user_id = int(user_id)  # Ensure always int
+        return bool(await admins_collection.find_one({'_id': user_id}))
+    except Exception as e:
+        print(f"Error checking admin status for {user_id}: {e}")
+        return False
 
-async def is_admin(admin_id: int) -> bool:
-    """Module-level wrapper for db.is_admin()"""
-    return await db.is_admin(admin_id)
+async def add_admin(user_id: int) -> bool:
+    """Add a user as admin."""
+    admins_collection = database['admins']
+    try:
+        user_id = int(user_id)  # Ensure always int
+        await admins_collection.update_one({'_id': user_id}, {'$set': {'_id': user_id}}, upsert=True)
+        return True
+    except Exception as e:
+        print(f"Error adding admin {user_id}: {e}")
+        return False
 
+async def remove_admin(user_id: int) -> bool:
+    """Remove a user from admins."""
+    admins_collection = database['admins']
+    try:
+        result = await admins_collection.delete_one({'_id': user_id})
+        return result.deleted_count > 0
+    except Exception as e:
+        print(f"Error removing admin {user_id}: {e}")
+        return False
 
-async def add_admin(admin_id: int) -> bool:
-    """Module-level wrapper for db.add_admin()"""
-    return await db.add_admin(admin_id)
+async def list_admins() -> list:
+    """List all admin user IDs."""
+    admins_collection = database['admins']
+    try:
+        admins = await admins_collection.find().to_list(None)
+        return [admin['_id'] for admin in admins]
+    except Exception as e:
+        print(f"Error listing admins: {e}")
+        return []
 
-
-async def del_admin(admin_id: int) -> bool:
-    """Module-level wrapper for db.del_admin()"""
-    return await db.del_admin(admin_id)
-
-
-async def get_all_admins() -> List[int]:
-    """Module-level wrapper for db.get_all_admins()"""
-    return await db.get_all_admins()
-
-
-async def ban_user_exist(user_id: int) -> bool:
-    """Module-level wrapper for db.ban_user_exist()"""
-    return await db.ban_user_exist(user_id)
-
-
-async def add_ban_user(user_id: int, reason: str = None) -> bool:
-    """Module-level wrapper for db.add_ban_user()"""
-    return await db.add_ban_user(user_id, reason)
-
-
-async def del_ban_user(user_id: int) -> bool:
-    """Module-level wrapper for db.del_ban_user()"""
-    return await db.del_ban_user(user_id)
-
-
-async def get_ban_users() -> List[int]:
-    """Module-level wrapper for db.get_ban_users()"""
-    return await db.get_ban_users()
-
-
-async def save_channel(channel_id: int, title: str = None) -> bool:
-    """Module-level wrapper for db.save_channel()"""
-    return await db.save_channel(channel_id, title)
-
+async def save_channel(channel_id: int) -> bool:
+    """Save a channel to the database with invite link expiration."""
+    if not isinstance(channel_id, int):
+        print(f"Invalid channel_id: {channel_id}")
+        return False
+    
+    try:
+        await channels_collection.update_one(
+            {"channel_id": channel_id},
+            {
+                "$set": {
+                    "channel_id": channel_id,
+                    "invite_link_expiry": None,
+                    "created_at": datetime.utcnow(),
+                    "status": "active"
+                }
+            },
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error saving channel {channel_id}: {e}")
+        return False
 
 async def get_channels() -> List[int]:
-    """Module-level wrapper for db.get_channels()"""
-    return await db.get_channels()
-
+    """Get all active channel IDs from the database."""
+    try:
+        channels = await channels_collection.find({"status": "active"}).to_list(None)
+        valid_channels = []
+        for channel in channels:
+            if isinstance(channel, dict) and "channel_id" in channel:
+                valid_channels.append(channel["channel_id"])
+            else:
+                print(f"Invalid channel document: {channel}")
+        if not valid_channels:
+            print(f"No valid channels found in database. Total documents checked: {len(channels)}")
+        return valid_channels
+    except Exception as e:
+        print(f"Error fetching channels: {e}")
+        return []
 
 async def delete_channel(channel_id: int) -> bool:
-    """Module-level wrapper for db.delete_channel()"""
-    return await db.delete_channel(channel_id)
-
-
-# Utility function for graceful shutdown
-async def cleanup_database():
-    """Cleanup database connections on shutdown."""
+    """Delete a channel from the database."""
     try:
-        await db.close_connections()
+        result = await channels_collection.delete_one({"channel_id": channel_id})
+        return result.deleted_count > 0
     except Exception as e:
-        logger.error(f"Error during database cleanup: {e}")
+        print(f"Error deleting channel {channel_id}: {e}")
+        return False
+
+async def save_encoded_link(channel_id: int) -> Optional[str]:
+    """Save an encoded link for a channel and return it."""
+    if not isinstance(channel_id, int):
+        print(f"Invalid channel_id: {channel_id}")
+        return None
+    
+    try:
+        encoded_link = base64.urlsafe_b64encode(str(channel_id).encode()).decode()
+        await channels_collection.update_one(
+            {"channel_id": channel_id},
+            {
+                "$set": {
+                    "encoded_link": encoded_link,
+                    "status": "active",
+                    "updated_at": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
+        return encoded_link
+    except Exception as e:
+        print(f"Error saving encoded link for channel {channel_id}: {e}")
+        return None
+
+async def get_channel_by_encoded_link(encoded_link: str) -> Optional[int]:
+    """Get a channel ID by its encoded link."""
+    if not isinstance(encoded_link, str):
+        return None
+    
+    try:
+        channel = await channels_collection.find_one({"encoded_link": encoded_link, "status": "active"})
+        return channel["channel_id"] if channel and "channel_id" in channel else None
+    except Exception as e:
+        print(f"Error fetching channel by encoded link {encoded_link}: {e}")
+        return None
+
+async def save_encoded_link2(channel_id: int, encoded_link: str) -> Optional[str]:
+    """Save a secondary encoded link for a channel."""
+    if not isinstance(channel_id, int) or not isinstance(encoded_link, str):
+        print(f"Invalid input: channel_id={channel_id}, encoded_link={encoded_link}")
+        return None
+    
+    try:
+        await channels_collection.update_one(
+            {"channel_id": channel_id},
+            {
+                "$set": {
+                    "req_encoded_link": encoded_link,
+                    "status": "active",
+                    "updated_at": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
+        return encoded_link
+    except Exception as e:
+        print(f"Error saving secondary encoded link for channel {channel_id}: {e}")
+        return None
+
+async def get_channel_by_encoded_link2(encoded_link: str) -> Optional[int]:
+    """Get a channel ID by its secondary encoded link."""
+    if not isinstance(encoded_link, str):
+        return None
+    
+    try:
+        channel = await channels_collection.find_one({"req_encoded_link": encoded_link, "status": "active"})
+        return channel["channel_id"] if channel and "channel_id" in channel else None
+    except Exception as e:
+        print(f"Error fetching channel by secondary encoded link {encoded_link}: {e}")
+        return None
+
+async def save_invite_link(channel_id: int, invite_link: str, is_request: bool) -> bool:
+    """Save the current invite link for a channel and its type."""
+    if not isinstance(channel_id, int) or not isinstance(invite_link, str):
+        print(f"Invalid input: channel_id={channel_id}, invite_link={invite_link}")
+        return False
+    
+    try:
+        await channels_collection.update_one(
+            {"channel_id": channel_id},
+            {
+                "$set": {
+                    "current_invite_link": invite_link,
+                    "is_request_link": is_request,
+                    "invite_link_created_at": datetime.utcnow(),
+                    "status": "active"
+                }
+            },
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error saving invite link for channel {channel_id}: {e}")
+        return False
+
+async def get_current_invite_link(channel_id: int) -> Optional[dict]:
+    """Get the current invite link and its type for a channel."""
+    if not isinstance(channel_id, int):
+        return None
+    
+    try:
+        channel = await channels_collection.find_one({"channel_id": channel_id, "status": "active"})
+        if channel and "current_invite_link" in channel:
+            return {
+                "invite_link": channel["current_invite_link"],
+                "is_request": channel.get("is_request_link", False)
+            }
+        return None
+    except Exception as e:
+        print(f"Error fetching current invite link for channel {channel_id}: {e}")
+        return None
+
+async def add_fsub_channel(channel_id: int) -> bool:
+    """Add a channel to the FSub list."""
+    if not isinstance(channel_id, int):
+        print(f"Invalid channel_id: {channel_id}")
+        return False
+    
+    try:
+        existing_channel = await fsub_channels_collection.find_one({'channel_id': channel_id})
+        if existing_channel:
+            return False
+        
+        await fsub_channels_collection.insert_one({
+            'channel_id': channel_id,
+            'created_at': datetime.utcnow(),
+            'status': 'active'
+        })
+        return True
+    except Exception as e:
+        print(f"Error adding FSub channel {channel_id}: {e}")
+        return False
+
+async def remove_fsub_channel(channel_id: int) -> bool:
+    """Remove a channel from the FSub list."""
+    try:
+        result = await fsub_channels_collection.delete_one({'channel_id': channel_id})
+        return result.deleted_count > 0
+    except Exception as e:
+        print(f"Error removing FSub channel {channel_id}: {e}")
+        return False
+
+async def get_fsub_channels() -> List[int]:
+    """Get all active FSub channel IDs."""
+    try:
+        channels = await fsub_channels_collection.find({'status': 'active'}).to_list(None)
+        return [channel['channel_id'] for channel in channels]
+    except Exception as e:
+        print(f"Error fetching FSub channels: {e}")
+        return []
+
+async def get_original_link(channel_id: int) -> Optional[str]:
+    """Get the original link stored for a channel (used by /genlink)."""
+    if not isinstance(channel_id, int):
+        return None
+    try:
+        channel = await channels_collection.find_one({"channel_id": channel_id, "status": "active"})
+        return channel.get("original_link") if channel and "original_link" in channel else None
+    except Exception as e:
+        print(f"Error fetching original link for channel {channel_id}: {e}")
+        return None
+
+async def set_approval_off(channel_id: int, off: bool = True) -> bool:
+    """Set approval_off flag for a channel."""
+    if not isinstance(channel_id, int):
+        print(f"Invalid channel_id: {channel_id}")
+        return False
+    try:
+        await channels_collection.update_one(
+            {"channel_id": channel_id},
+            {"$set": {"approval_off": off}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error setting approval_off for channel {channel_id}: {e}")
+        return False
+
+async def is_approval_off(channel_id: int) -> bool:
+    """Check if approval_off flag is set for a channel."""
+    if not isinstance(channel_id, int):
+        return False
+    try:
+        channel = await channels_collection.find_one({"channel_id": channel_id})
+        return bool(channel and channel.get("approval_off", False))
+    except Exception as e:
+        print(f"Error checking approval_off for channel {channel_id}: {e}")
+        return False
