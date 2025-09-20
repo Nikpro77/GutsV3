@@ -560,6 +560,95 @@ except Exception as e:
     raise
 
 
+# ---------------- MODULE-LEVEL WRAPPER FUNCTIONS ----------------
+# These functions provide backward compatibility for direct imports
+
+async def set_approval_off(channel_id: int, off: bool = True) -> bool:
+    """Module-level wrapper for db.set_approval_off()"""
+    return await db.set_approval_off(channel_id, off)
+
+
+async def is_approval_off(channel_id: int) -> bool:
+    """Module-level wrapper for db.is_approval_off()"""
+    return await db.is_approval_off(channel_id)
+
+
+# Additional commonly used wrapper functions for your PyroFork bot
+async def present_user(user_id: int) -> bool:
+    """Module-level wrapper for db.present_user()"""
+    return await db.present_user(user_id)
+
+
+async def add_user(user_id: int) -> bool:
+    """Module-level wrapper for db.add_user()"""
+    return await db.add_user(user_id)
+
+
+async def full_userbase() -> List[int]:
+    """Module-level wrapper for db.full_userbase()"""
+    return await db.full_userbase()
+
+
+async def del_user(user_id: int) -> bool:
+    """Module-level wrapper for db.del_user()"""
+    return await db.del_user(user_id)
+
+
+async def is_admin(admin_id: int) -> bool:
+    """Module-level wrapper for db.is_admin()"""
+    return await db.is_admin(admin_id)
+
+
+async def add_admin(admin_id: int) -> bool:
+    """Module-level wrapper for db.add_admin()"""
+    return await db.add_admin(admin_id)
+
+
+async def del_admin(admin_id: int) -> bool:
+    """Module-level wrapper for db.del_admin()"""
+    return await db.del_admin(admin_id)
+
+
+async def get_all_admins() -> List[int]:
+    """Module-level wrapper for db.get_all_admins()"""
+    return await db.get_all_admins()
+
+
+async def ban_user_exist(user_id: int) -> bool:
+    """Module-level wrapper for db.ban_user_exist()"""
+    return await db.ban_user_exist(user_id)
+
+
+async def add_ban_user(user_id: int, reason: str = None) -> bool:
+    """Module-level wrapper for db.add_ban_user()"""
+    return await db.add_ban_user(user_id, reason)
+
+
+async def del_ban_user(user_id: int) -> bool:
+    """Module-level wrapper for db.del_ban_user()"""
+    return await db.del_ban_user(user_id)
+
+
+async def get_ban_users() -> List[int]:
+    """Module-level wrapper for db.get_ban_users()"""
+    return await db.get_ban_users()
+
+
+async def save_channel(channel_id: int, title: str = None) -> bool:
+    """Module-level wrapper for db.save_channel()"""
+    return await db.save_channel(channel_id, title)
+
+
+async def get_channels() -> List[int]:
+    """Module-level wrapper for db.get_channels()"""
+    return await db.get_channels()
+
+
+async def delete_channel(channel_id: int) -> bool:
+    """Module-level wrapper for db.delete_channel()"""
+    return await db.delete_channel(channel_id)
+
+
 # Utility function for graceful shutdown
 async def cleanup_database():
     """Cleanup database connections on shutdown."""
